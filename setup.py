@@ -10,7 +10,7 @@ setup(
     url="https://github.com/sabuaka/saapibf",
     install_requires=[
         'requests==2.21.0',
-        'urllib3==1.25.2',
+        'urllib3==1.24.3',
         'websocket-client==0.48.0'
     ]
 )
