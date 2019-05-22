@@ -12,9 +12,9 @@ Please note that bitFlyer and library authors are not responsible for any damage
 Use only if you understand the content of the source code.
 
 ## Requirement
-requests
-urllib3
-websocket-client
+* requests
+* urllib3
+* websocket-client
 
 ## Usage
 TBA
