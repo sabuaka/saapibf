@@ -1,31 +1,51 @@
 # -*- coding: utf-8 -*-
-'''取引所アクセスモジュール for FX'''
+'''Broker access module for FX'''
 from enum import Enum
+
 from .common import n2d
 from .broker import BrokerAPI
+from .const import ProductCode
 
 
 class BrokerFXAPI(BrokerAPI):
-    '''取引所アクセス仮想APIクラスfor 証拠金取引'''
+    '''Broker access class for FX'''
 
-    class Asset(Enum):  # override
-        '''(override)enumeration of asset'''
-        BTC = 'BTC'
-        JPY = 'JPY'
-
-    class TradePair(Enum):  # override
-        '''enumeration of trade pair'''
+    class TradePair(Enum):
+        '''Trade pair'''
+        BTC_JPY = 'BTC_JPY'
         FX_BTC_JPY = 'FX_BTC_JPY'
+
+    @staticmethod
+    def get_product_code():     # override
+        '''get product code'''
+        return ProductCode.FX_BTC_JPY
 
     # -------------------------------------------------------------------------
     # Private API
     # -------------------------------------------------------------------------
+    def get_assets(self):
+        '''資産残高を取得'''
+        result = False
+        rtn_assets = {}
+        try:
+            res_infos = self._prv_api.get_getcollateralaccounts()
+            for blance in res_infos:
+                asset_info = self.AssetInfo()
+                asset_info.name = blance['currency_code']
+                asset_info.onhand_amount = asset_info.free_amount = n2d(blance['amount'])
+                rtn_assets[asset_info.name] = asset_info
+            result = True
+        except:     # pylint: disable-msg=W0702
+            result = False
+            rtn_assets = None
+        return result, rtn_assets
+
     def get_margin_trading(self):
-        '''証拠金の状態を取得'''
+        '''get margin trading info'''
         result = False
         rtn_mti = None
         try:
-            res_cll = self.prv_api.get_getcollateral()
+            res_cll = self._prv_api.get_getcollateral()
             rtn_mti = MarginTradingInfo(res_cll)
             result = True
         except:     # pylint: disable-msg=W0702
@@ -40,7 +60,7 @@ class BrokerFXAPI(BrokerAPI):
         rtn_ave_price = n2d(0)
         rtn_total_amount = n2d(0)
         try:
-            res_postions = self.prv_api.get_getpositions(self.trade_pair)
+            res_postions = self._prv_api.get_getpositions(self.product_code)
             ave_divisor = n2d(0)
             for pos in res_postions:
                 pi = PositionInfo(pos)
@@ -56,59 +76,6 @@ class BrokerFXAPI(BrokerAPI):
             rtn_ave_price = None
             rtn_total_amount = None
         return result, rtn_pi_list, rtn_ave_price, rtn_total_amount
-
-    def get_assets(self):
-        '''資産残高を取得(PrivateAPI使用回数: 1 + pair数分 回)'''
-        result = False
-        rtn_assets = {}
-        try:
-            # JPY(証拠金残高)を取得する
-            res_collateral = self.prv_api.get_getcollateral()
-            asset_jpy = self.AssetInfo()
-            asset_jpy.name = self.Asset.JPY.value
-            asset_jpy.onhand_amount = n2d(res_collateral['collateral'])  # 預託証拠金
-            wk_req_amount = n2d(res_collateral['require_collateral'])    # 必要証拠金
-            asset_jpy.free_amount = asset_jpy.onhand_amount - wk_req_amount
-            rtn_assets[asset_jpy.name] = asset_jpy
-
-            # 仮想通貨(建玉)を取得する
-            for pair in self.TradePair:
-                res_posiotns = self.prv_api.get_getpositions(pair.value)
-                for position in res_posiotns:
-                    # 通貨名の取得
-                    name = position['product_code'].split('_')[1]
-                    # 保持量の取得(ショートポジションの場合は-とする)
-                    amount = n2d(position['size'])
-                    if position['side'] == 'SELL':
-                        amount = amount * n2d(-1)
-                    # 資産情報の生成
-                    if name not in rtn_assets:
-                        asset_vc = self.AssetInfo()
-                        asset_vc.name = name
-                        asset_vc.onhand_amount = amount
-                        asset_vc.free_amount = amount
-                    else:
-                        asset_vc = rtn_assets[name]
-                        asset_vc.name = name
-                        asset_vc.onhand_amount += amount
-                        asset_vc.free_amount += amount
-                    rtn_assets[asset_vc.name] = asset_vc
-
-            # 生成されなかった資産情報を擬似的に生成する
-            for asset in self.Asset:
-                if asset.value not in rtn_assets:
-                    asset_vc = self.AssetInfo()
-                    asset_vc.name = asset.value
-                    asset_vc.onhand_amount = n2d(0)
-                    asset_vc.free_amount = n2d(0)
-                    rtn_assets[asset_vc.name] = asset_vc
-
-            result = True
-
-        except:     # pylint: disable-msg=W0702
-            result = False
-            rtn_assets = None
-        return result, rtn_assets
 
 
 class MarginTradingInfo(object):
@@ -150,7 +117,7 @@ class PositionInfo(object):
     def __init__(self, info=None):
         if info is not None:
             self.pair = info['product_code']
-            self.side = BrokerAPI.str2side(info['side'])
+            self.side = info['side']
             self.price = n2d(info['price'])
             self.amount = n2d(info['size'])
             self.commission = n2d(info['commission'])

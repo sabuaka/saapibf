@@ -1,63 +1,16 @@
 # -*- coding: utf-8 -*-
-'''取引所アクセスモジュール'''
+'''Broker access module'''
 import os
 from datetime import datetime
-from enum import Enum, IntEnum, auto
+from enum import IntEnum, auto
 from .common import get_dt_short, get_dt_long, n2d
+from .const import ProductCode, HealthStatus, StateStatus, OrderSide, OrderType, OrderConditionType
 from .private import PrivateAPI
 from .public import PublicAPI
 
 
 class BrokerAPI(object):
-    '''取引所アクセス仮想APIクラス'''
-
-    class Asset(Enum):
-        '''enumeration of asset'''
-        LTC = 'LTC'
-        BCH = 'BCH'
-        BTC = 'BCH'
-        MONA = 'MONA'
-        LSK = 'LSK'
-        ETC = 'ETC'
-        JPY = 'JPY'
-        ETH = 'ETH'
-
-    class TradePair(Enum):
-        '''enumeration of trade pair'''
-        BTC_JPY = 'BTC_JPY'
-
-    class OrderSide(Enum):
-        '''enumeration of trade side'''
-        BUY = 'BUY'
-        SELL = 'SELL'
-
-    @staticmethod
-    def str2side(str_side):
-        '''Convert string to OrderSide type'''
-        if str_side == BrokerAPI.OrderSide.BUY.value:
-            return BrokerAPI.OrderSide.BUY
-        elif str_side == BrokerAPI.OrderSide.SELL.value:
-            return BrokerAPI.OrderSide.SELL
-        return None
-
-    class OrderType(Enum):
-        '''enumeration of order type'''
-        # normal order
-        LIMIT = 'LIMIT'
-        MARKET = 'MARKET'
-        # special order
-        SIMPLE = 'SIMPLE'
-        IFD = 'IFD'
-        OCO = 'OCO'
-        IFDOCO = 'IFDOCO'
-
-    @staticmethod
-    def str2type(str_type):
-        '''Convert string to OrderType type'''
-        for ot in BrokerAPI.OrderType:
-            if ot.value == str_type:
-                return ot
-        return None
+    '''Broker access vlass'''
 
     class OrderState(IntEnum):
         '''enumeration of order state'''
@@ -68,27 +21,8 @@ class BrokerAPI(object):
         CANCELED_PARTIALLY_FILLED = auto()  # 取消済(一部約定)
         UNKNOWN = auto()                    # 不明
 
-    class HealthStatus(Enum):
-        '''enumeration of health status'''
-        NORMAL = 'NORMAL'           # 取引所は稼動しています。
-        BUSY = 'BUSY'               # 取引所に負荷がかかっている状態です。
-        VERY_BUSY = 'VERY BUSY'     # 取引所の負荷が大きい状態です。
-        SUPER_BUSY = 'SUPER BUSY'   # 負荷が非常に大きい状態です。発注は失敗するか、遅れて処理される可能性があります。
-        NO_ORDER = 'NO ORDER'       # 発注が受付できない状態です。
-        STOP = 'STOP'               # 取引所は停止しています。発注は受付されません。
-
-    class StateStatus(Enum):
-        '''enumeration of status'''
-        RUNNING = 'RUNNING'                 # 通常稼働中
-        CLOSED = 'CLOSED'                   # 取引停止中
-        STARTING = 'STARTING'               # 再起動中
-        PREOPEN = 'PREOPEN'                 # 板寄せ中
-        CIRCUIT_BREAK = 'CIRCUIT BREAK'     # サーキットブレイク発動中
-        AWAITING_SQ = 'AWAITING SQ'         # LightningFuturesの取引終了後SQ（清算値）の確定前
-        MATURED = 'MATURED'                 # LightningFuturesの満期に到達
-
-    class EventLog(Enum):
-        '''enumeration of status'''
+    class EventLog():   # pylint: disable=too-few-public-methods
+        '''event log'''
         ORDER_BUY_MARKET = 'ORDER_BUY_MARKET'
         ORDER_BUY_LIMIT = 'ORDER_BUY_LIMIT'
         ORDER_SELL_MARKET = 'ORDER_SELL_MARKET'
@@ -108,28 +42,35 @@ class BrokerAPI(object):
         except:
             return None
 
-    def __init__(self, pair, key, secret, log=True, *, get_timeout=None, post_timeout=None):
+    @staticmethod
+    def get_product_code():
+        '''get product code'''
+        return ProductCode.BTC_JPY
+
+    def __init__(self, key, secret, log=True, *, get_timeout=None, post_timeout=None):
         """イニシャライザ"""
         self.broker_name = 'bitflyer'
-        self.__trade_pair = pair
+        self.product_code = self.get_product_code()
 
         self.__api_key = key
         self.__api_secret = secret
         self.__get_timeout = get_timeout
         self.__post_timeout = post_timeout
-        self.__prv_api = PrivateAPI(self.__api_key, self.__api_secret,
-                                    get_timeout=self.__get_timeout,
-                                    post_timeout=self.__post_timeout)
+        self._prv_api = PrivateAPI(self.__api_key, self.__api_secret,
+                                   get_timeout=self.__get_timeout,
+                                   post_timeout=self.__post_timeout)
 
         self.__log = log
         if self.__log:
             log_dir = './log/' + self.broker_name + '/'
             if not os.path.exists(log_dir):
                 os.makedirs(log_dir)
-            self.__log_path = log_dir + get_dt_short() \
-                                      + '_order' \
-                                      + '_' + self.broker_name \
-                                      + '_' + self.__trade_pair + '.csv'
+            self.__log_path = (log_dir
+                               + get_dt_short()
+                               + '_order'
+                               + '_' + self.broker_name
+                               + '_' + self.product_code
+                               + '.csv')
             with open(self.__log_path, 'w') as flog:
                 header_str = ('date time'
                               ',event'
@@ -141,15 +82,11 @@ class BrokerAPI(object):
                               '\n')
                 flog.writelines(header_str)
 
-    def __logging_event(self, event,
-                        order_id,
-                        price, anount,
-                        success,
-                        facility):
+    def __logging_event(self, event, order_id, price, anount, success, facility):
         '''イベント保存'''
         if self.__log:
             wstr = (get_dt_long() + ','
-                    + str(event.value) + ','
+                    + str(event) + ','
                     + str(order_id) + ','
                     + str(price) + ','
                     + str(anount) + ','
@@ -162,16 +99,6 @@ class BrokerAPI(object):
     # -------------------------------------------------------------------------
     # Private API
     # -------------------------------------------------------------------------
-    @property
-    def prv_api(self):
-        '''[property] private api'''
-        return self.__prv_api
-
-    @property
-    def trade_pair(self):
-        '''[property] trade pair'''
-        return self.__trade_pair
-
     class AssetInfo:
         '''資産情報'''
         name = None
@@ -190,7 +117,7 @@ class BrokerAPI(object):
         result = False
         rtn_assets = {}
         try:
-            res_balances = self.__prv_api.get_getbalance()
+            res_balances = self._prv_api.get_getbalance()
             for blance in res_balances:
                 asset_info = self.AssetInfo()
                 asset_info.name = blance['currency_code']
@@ -208,8 +135,7 @@ class BrokerAPI(object):
         result = False
         rtn_order = None
         try:
-            res_infos = self.prv_api.get_childorders(
-                self.trade_pair, child_order_acceptance_id=order_id)
+            res_infos = self._prv_api.get_childorders(self.product_code, child_order_acceptance_id=order_id)
             if len(res_infos) > 0:  # pylint: disable-msg=C1801
                 rtn_order = OrderInfo(res_infos[0])
                 result = True
@@ -242,7 +168,7 @@ class BrokerAPI(object):
         result = False
         res_dct = None
         try:
-            res_dct = PublicAPI(timeout=self.__get_timeout).get_depth(self.trade_pair)
+            res_dct = PublicAPI(timeout=self.__get_timeout).get_depth(self.product_code)
             result = True
         except:     # pylint: disable-msg=W0702
             result = False
@@ -254,7 +180,7 @@ class BrokerAPI(object):
         result = False
         res_dct = None
         try:
-            res_dct = PublicAPI(timeout=self.__get_timeout).get_ticker(self.trade_pair)
+            res_dct = PublicAPI(timeout=self.__get_timeout).get_ticker(self.product_code)
             result = True
         except:     # pylint: disable-msg=W0702
             result = False
@@ -266,58 +192,40 @@ class BrokerAPI(object):
         result = False
         res_dct = None
         try:
-            res_dct = PublicAPI(timeout=self.__get_timeout).get_executions(self.trade_pair)
+            res_dct = PublicAPI(timeout=self.__get_timeout).get_executions(self.product_code)
             result = True
         except:     # pylint: disable-msg=W0702
             result = False
             res_dct = None
         return result, res_dct
 
-    @staticmethod
-    def cvt_status_health(api_result):
-        rtn_health = BrokerAPI.HealthStatus.STOP
-        for obj in BrokerAPI.HealthStatus:
-            if obj.value == api_result:
-                rtn_health = obj
-                break
-        return rtn_health
-
-    @staticmethod
-    def cvt_status_state(api_result):
-        rtn_state = BrokerAPI.StateStatus.CLOSED
-        for obj in BrokerAPI.StateStatus:
-            if obj.value == api_result:
-                rtn_state = obj
-                break
-        return rtn_state
-
     def get_depth_status(self):
         ''' 板の状態の取得 '''
         result = False
-        health = self.HealthStatus.STOP
-        state = self.StateStatus.CLOSED
+        health = HealthStatus.STOP
+        state = StateStatus.CLOSED
         try:
-            res_dct = PublicAPI(timeout=self.__get_timeout).get_boardstate(self.trade_pair)
-            health = self.cvt_status_health(res_dct['health'])
-            state = self.cvt_status_state(res_dct['state'])
+            res_dct = PublicAPI(timeout=self.__get_timeout).get_boardstate(self.product_code)
+            health = res_dct['health']
+            state = es_dct['state']
             result = True
         except:     # pylint: disable-msg=W0702
             result = False
-            health = self.HealthStatus.STOP
-            state = self.StateStatus.CLOSED
+            health = HealthStatus.STOP
+            state = StateStatus.CLOSED
         return result, health, state
 
     def get_broker_status(self):
         ''' 取引所の状態の取得 '''
         result = False
-        health = self.HealthStatus.STOP
+        health = HealthStatus.STOP
         try:
-            res_dct = PublicAPI(timeout=self.__get_timeout).get_health(self.trade_pair)
-            health = self.cvt_status_health(res_dct['status'])
+            res_dct = PublicAPI(timeout=self.__get_timeout).get_health(self.product_code)
+            health = res_dct['status']
             result = True
         except:     # pylint: disable-msg=W0702
             result = False
-            health = self.HealthStatus.STOP
+            health = HealthStatus.STOP
         return result, health
 
     def get_chats(self):
@@ -340,9 +248,7 @@ class BrokerAPI(object):
         result = False
         order_id = None
         try:
-            res_order = self.prv_api.send_childorder_limit_buy(self.trade_pair,
-                                                               float(price),
-                                                               float(amount))
+            res_order = self._prv_api.send_childorder_limit_buy(self.product_code, float(price), float(amount))
             order_id = res_order['child_order_acceptance_id']
             result = True
         except:     # pylint: disable-msg=W0702
@@ -361,9 +267,7 @@ class BrokerAPI(object):
         result = False
         order_id = None
         try:
-            res_order = \
-                self.prv_api.send_childorder_market_buy(self.trade_pair,
-                                                        float(amount))
+            res_order = self._prv_api.send_childorder_market_buy(self.product_code, float(amount))
             order_id = res_order['child_order_acceptance_id']
             result = True
         except:     # pylint: disable-msg=W0702
@@ -382,8 +286,7 @@ class BrokerAPI(object):
         result = False
         order_id = None
         try:
-            res_order = self.prv_api.send_childorder_limit_sell(
-                self.trade_pair, float(price), float(amount))
+            res_order = self._prv_api.send_childorder_limit_sell(self.product_code, float(price), float(amount))
             order_id = res_order['child_order_acceptance_id']
             result = True
         except:     # pylint: disable-msg=W0702
@@ -402,9 +305,7 @@ class BrokerAPI(object):
         result = False
         order_id = None
         try:
-            res_order = \
-                self.prv_api.send_childorder_market_sell(self.trade_pair,
-                                                         float(amount))
+            res_order = self._prv_api.send_childorder_market_sell(self.product_code, float(amount))
             order_id = res_order['child_order_acceptance_id']
             result = True
         except:     # pylint: disable-msg=W0702
@@ -422,8 +323,7 @@ class BrokerAPI(object):
         '''注文をキャンセルする'''
         result = False
         try:
-            self.prv_api.send_cancelchildorder(
-                self.trade_pair, child_order_acceptance_id=order_id)
+            self._prv_api.send_cancelchildorder(self.product_code, child_order_acceptance_id=order_id)
             result = True
         except:     # pylint: disable-msg=W0702
             result = False
@@ -439,7 +339,7 @@ class BrokerAPI(object):
         '''全ての注文をキャンセルする'''
         result = False
         try:
-            self.prv_api.send_cancelallchildorders(self.trade_pair)
+            self._prv_api.send_cancelallchildorders(self.product_code)
             result = True
         except:     # pylint: disable-msg=W0702
             result = False
@@ -447,20 +347,12 @@ class BrokerAPI(object):
         self.__logging_event(self.EventLog.ORDER_ALL_CANCEL, None, None, None, result, '')
         return result
 
-    class ConditionType(Enum):
-        '''特殊注文の執行条件'''
-        LIMIT = 'LIMIT'             # Limit order.
-        MARKET = 'MARKET'           # Market order.
-        STOP = 'STOP'               # Stop order.
-        STOP_LIMIT = 'STOP_LIMIT'   # Stop-limit order.
-        TRAIL = 'TRAIL'             # Trailing stop order.
-
     def parent_aid_to_oid(self, acceptance_id):
         '''Get parent_order_id from parent_order_acceptance_id'''
         result = False
         rtn_id = None
         try:
-            res_info = self.__prv_api.get_parentorder(parent_order_acceptance_id=acceptance_id)
+            res_info = self._prv_api.get_parentorder(parent_order_acceptance_id=acceptance_id)
             rtn_id = res_info['parent_order_id']
             result = True
         except:
@@ -474,8 +366,7 @@ class BrokerAPI(object):
         result = False
         rtn_orders = None
         try:
-            res_infos = self.prv_api.get_childorders(self.trade_pair,
-                                                     parent_order_id=parent_order_id)
+            res_infos = self._prv_api.get_childorders(self.product_code, parent_order_id=parent_order_id)
             rtn_orders = []
             if len(res_infos) > 0:  # pylint: disable-msg=C1801
                 for info in res_infos:
@@ -494,7 +385,7 @@ class BrokerAPI(object):
         '''return parameters of dicttype parent order'''
         res_dict = {
             'product_code': product_code,
-            'condition_type': self.ConditionType.LIMIT.value,
+            'condition_type': OrderConditionType.LIMIT,
             'side': side,
             'price': price,
             'size': size
@@ -505,7 +396,7 @@ class BrokerAPI(object):
         '''return parameters of dicttype parent order'''
         res_dict = {
             'product_code': product_code,
-            'condition_type': self.ConditionType.STOP.value,
+            'condition_type': OrderConditionType.STOP,
             'side': side,
             'trigger_price': price,
             'size': size
@@ -518,19 +409,12 @@ class BrokerAPI(object):
         order_id = None
         try:
             # make order list
-            prms_order = self.so_mk_prms_limit(self.trade_pair,
-                                               self.OrderSide.BUY.value,
-                                               float(o_price),
-                                               float(amount))
-            prms_stop = self.so_mk_prms_stop(self.trade_pair,
-                                             self.OrderSide.BUY.value,
-                                             float(s_price),
-                                             float(amount))
+            prms_order = self.so_mk_prms_limit(self.product_code, OrderSide.BUY, float(o_price), float(amount))
+            prms_stop = self.so_mk_prms_stop(self.product_code, OrderSide.BUY, float(s_price), float(amount))
             parameters = [prms_order, prms_stop]
 
             # send order
-            res_order = self.prv_api.send_parentorder(self.OrderType.OCO.value,
-                                                      parameters)
+            res_order = self._prv_api.send_parentorder(OrderType.OCO, parameters)
             order_id = res_order['parent_order_acceptance_id']
             result = True
         except:
@@ -554,19 +438,12 @@ class BrokerAPI(object):
         order_id = None
         try:
             # make order list
-            prms_order = self.so_mk_prms_limit(self.trade_pair,
-                                               self.OrderSide.SELL.value,
-                                               float(o_price),
-                                               float(amount))
-            prms_stop = self.so_mk_prms_stop(self.trade_pair,
-                                             self.OrderSide.SELL.value,
-                                             float(s_price),
-                                             float(amount))
+            prms_order = self.so_mk_prms_limit(self.product_code, OrderSide.SELL, float(o_price), float(amount))
+            prms_stop = self.so_mk_prms_stop(self.product_code, OrderSide.SELL, float(s_price), float(amount))
             parameters = [prms_order, prms_stop]
 
             # send order
-            res_order = self.prv_api.send_parentorder(self.OrderType.OCO.value,
-                                                      parameters)
+            res_order = self._prv_api.send_parentorder(OrderType.OCO, parameters)
             order_id = res_order['parent_order_acceptance_id']
             result = True
         except:
@@ -593,15 +470,15 @@ class BrokerAPI(object):
             if parent_order_acceptance_id is not None:
                 c_id = parent_order_acceptance_id
                 memo = 'parent_order_acceptance_id'
-                self.prv_api.send_cancelparentorder(
-                    self.trade_pair, parent_order_acceptance_id=parent_order_acceptance_id)
+                self._prv_api.send_cancelparentorder(
+                    self.product_code, parent_order_acceptance_id=parent_order_acceptance_id)
                 result = True
 
             elif parent_order_id is not None:
                 c_id = parent_order_id
                 memo = 'parent_order_id'
-                self.prv_api.send_cancelparentorder(
-                    self.trade_pair, parent_order_id=parent_order_id)
+                self._prv_api.send_cancelparentorder(
+                    self.product_code, parent_order_id=parent_order_id)
                 result = True
 
             else:
@@ -610,11 +487,7 @@ class BrokerAPI(object):
         except:     # pylint: disable-msg=W0702
             result = False
 
-        self.__logging_event(self.EventLog.SPECIAL_ORDER_CANCEL,
-                             c_id,
-                             None, None,
-                             result, memo)
-
+        self.__logging_event(self.EventLog.SPECIAL_ORDER_CANCEL, c_id, None, None, result, memo)
         return result
 
 
@@ -646,8 +519,8 @@ class OrderInfo(object):
         if info is not None:
             self.order_id = info['child_order_acceptance_id']
             self.order_pair = info['product_code']
-            self.order_side = BrokerAPI.str2side(info['side'])
-            self.order_type = BrokerAPI.str2type(info['child_order_type'])
+            self.order_side = info['side']
+            self.order_type = info['child_order_type']
             self.order_price = n2d(info['price'])
             self.order_amount = n2d(info['size'])
             self.executed_ave_price = n2d(info['average_price'])
@@ -688,8 +561,7 @@ class OrderInfo(object):
         print('executed_ave_price', self.executed_ave_price, type(self.executed_ave_price))
         print('executed_amount', self.executed_amount, type(self.executed_amount))
         print('executed_commission', self.executed_commission, type(self.executed_commission))
-        print('executed_actual_amount', self.executed_actual_amount,
-              type(self.executed_actual_amount))
+        print('executed_actual_amount', self.executed_actual_amount, type(self.executed_actual_amount))
         print('outstanding_amount', self.outstanding_amount, type(self.outstanding_amount))
         print('canceled_amount', self.canceled_amount, type(self.canceled_amount))
         print('expire_date', self.expire_date, type(self.expire_date))
