@@ -68,3 +68,12 @@ class OrderConditionType():
     STOP = 'STOP'               # Stop order.
     STOP_LIMIT = 'STOP_LIMIT'   # Stop-limit order.
     TRAIL = 'TRAIL'             # Trailing stop order.
+
+
+class OrderState():
+    '''order state'''
+    ACTIVE = 'ACTIVE'           # open order
+    COMPLETED = 'COMPLETED'     # fully completed order
+    CANCELED = 'CANCELED'       # order that have been cancelled by the customer
+    EXPIRED = 'EXPIRED'         # order that have been cancelled due to expiry
+    REJECTED = 'REJECTED'       # failed order

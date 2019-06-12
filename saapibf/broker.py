@@ -12,15 +12,6 @@ from .public import PublicAPI
 class BrokerAPI(object):
     '''Broker access vlass'''
 
-    class OrderState(IntEnum):
-        '''enumeration of order state'''
-        UNFILLED = auto()                   # 注文中
-        PARTIALLY_FILLED = auto()           # 注文中(一部約定)
-        FULLY_FILLED = auto()               # 約定済み
-        CANCELED_UNFILLED = auto()          # 取消済(EXPIRED,REJECTED含む)
-        CANCELED_PARTIALLY_FILLED = auto()  # 取消済(一部約定)
-        UNKNOWN = auto()                    # 不明
-
     class EventLog():   # pylint: disable=too-few-public-methods
         '''event log'''
         ORDER_BUY_MARKET = 'ORDER_BUY_MARKET'
@@ -530,24 +521,7 @@ class OrderInfo(object):
             self.canceled_amount = n2d(info['cancel_size'])
             self.expire_date = BrokerAPI.str2dt(info['expire_date'])
             self.order_date = BrokerAPI.str2dt(info['child_order_date'])
-            self.order_state = self.__analize_state(info['child_order_state'], self.executed_amount)
-
-    @staticmethod
-    def __analize_state(str_state, executed_amount):
-        if str_state == 'ACTIVE':
-            if executed_amount > 0:
-                return BrokerAPI.OrderState.PARTIALLY_FILLED
-            else:
-                return BrokerAPI.OrderState.UNFILLED
-        elif str_state == 'COMPLETED':
-            return BrokerAPI.OrderState.FULLY_FILLED
-        elif str_state == 'CANCELED':
-            if executed_amount > 0:
-                return BrokerAPI.OrderState.CANCELED_PARTIALLY_FILLED
-            else:
-                return BrokerAPI.OrderState.CANCELED_UNFILLED
-        else:   # EXPIRED, REJECTED
-            return BrokerAPI.OrderState.CANCELED_UNFILLED
+            self.order_state = info['child_order_state']
 
     def out_shell(self):
         '''Display information to shell'''
