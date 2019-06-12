@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 from enum import IntEnum, auto
 from .common import get_dt_short, get_dt_long, n2d
-from .const import ProductCode, HealthStatus, StateStatus, OrderSide, OrderType, OrderConditionType
+from .const import ProductCode, HealthStatus, StateStatus, OrderSide, OrderType, OrderConditionType, OrderState
 from .private import PrivateAPI
 from .public import PublicAPI
 
@@ -133,7 +133,6 @@ class BrokerAPI(object):
             else:
                 result = True
                 rtn_order = OrderInfo()
-                rtn_order.order_state = self.OrderState.UNKNOWN
         except:     # pylint: disable-msg=W0702
             result = False
             rtn_order = None
@@ -366,7 +365,6 @@ class BrokerAPI(object):
             else:
                 result = True
                 rtn_orders.append(OrderInfo())
-                rtn_orders[0].order_state = self.OrderState.UNKNOWN
         except:     # pylint: disable-msg=W0702
             result = False
             rtn_orders = None
@@ -488,7 +486,7 @@ class OrderInfo(object):
     order_pair = None
     order_side = None
     order_type = None
-    order_state = None
+    order_state = OrderState.UNKNOWN
     order_price = None
     order_amount = None
     executed_ave_price = None

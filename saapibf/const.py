@@ -72,6 +72,7 @@ class OrderConditionType():
 
 class OrderState():
     '''order state'''
+    UNKNOWN = 'UNKNOWN'         # unknown order
     ACTIVE = 'ACTIVE'           # open order
     COMPLETED = 'COMPLETED'     # fully completed order
     CANCELED = 'CANCELED'       # order that have been cancelled by the customer
