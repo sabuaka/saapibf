@@ -162,10 +162,6 @@ class BrokerAPI(object):
         except:     # pylint: disable-msg=W0702
             result = False
             res_dct = None
-            import traceback
-            with open('error_saapi.log', 'a') as f:
-                f.write(dt.get_dt_long() + '\n')
-                traceback.print_exc(file=f)
         return result, res_dct
 
     def get_ticker(self):
@@ -206,6 +202,10 @@ class BrokerAPI(object):
             result = False
             health = HealthStatus.STOP
             state = StateStatus.CLOSED
+            import traceback
+            with open('error_saapi.log', 'a') as f:
+                f.write(get_dt_long() + '\n')
+                traceback.print_exc(file=f)
         return result, health, state
 
     def get_broker_status(self):
