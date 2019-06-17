@@ -3,7 +3,7 @@ from setuptools import setup
 setup(
     name='saapibf',
     packages=['saapibf'],
-    version='0.0.9',
+    version='0.0.10',
     description='bitFlyer API Library for Python',
     author='sabuaka',
     author_email='sabuaka-fx@hotmail.com',

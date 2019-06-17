@@ -196,16 +196,12 @@ class BrokerAPI(object):
         try:
             res_dct = PublicAPI(timeout=self.__get_timeout).get_boardstate(self.product_code)
             health = res_dct['health']
-            state = es_dct['state']
+            state = res_dct['state']
             result = True
         except:     # pylint: disable-msg=W0702
             result = False
             health = HealthStatus.STOP
             state = StateStatus.CLOSED
-            import traceback
-            with open('error_saapi.log', 'a') as f:
-                f.write(get_dt_long() + '\n')
-                traceback.print_exc(file=f)
         return result, health, state
 
     def get_broker_status(self):
