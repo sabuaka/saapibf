@@ -2,7 +2,6 @@
 '''Broker access module'''
 import os
 from datetime import datetime
-from enum import IntEnum, auto
 from .common import get_dt_short, get_dt_long, n2d
 from .const import ProductCode, HealthStatus, StateStatus, OrderSide, OrderType, OrderConditionType, OrderState
 from .private import PrivateAPI

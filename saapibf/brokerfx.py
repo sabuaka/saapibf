@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 '''Broker access module for FX'''
-from enum import Enum
-
 from .common import n2d
 from .broker import BrokerAPI
 from .const import ProductCode
@@ -9,11 +7,6 @@ from .const import ProductCode
 
 class BrokerFXAPI(BrokerAPI):
     '''Broker access class for FX'''
-
-    class TradePair(Enum):
-        '''Trade pair'''
-        BTC_JPY = 'BTC_JPY'
-        FX_BTC_JPY = 'FX_BTC_JPY'
 
     @staticmethod
     def get_product_code():     # override
